@@ -4,14 +4,12 @@
 \alias{findLambdaClass}
 \title{find B matrix such that X=BxF+e, i.e. lambda.hat}
 \usage{
-findLambdaClass(covx, N, P, k.factors)
+findLambdaClass(eigen.value, eigen.vector, k.factors)
 }
 \arguments{
-\item{covx}{covariance of x}
+\item{eigen.value}{eigen values of covariance matrix}
 
-\item{N}{row number of x}
-
-\item{P}{col number of x}
+\item{eigen.vector}{eigen vectors of covariance matrix}
 
 \item{k.factors}{number of factors needed}
 }

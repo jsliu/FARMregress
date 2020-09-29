@@ -4,10 +4,12 @@
 \alias{findFactorClass}
 \title{find F such that X = BxF + e, i.e F.hat}
 \usage{
-findFactorClass(x, lambda.hat)
+findFactorClass(x, eigen.value, lambda.hat)
 }
 \arguments{
 \item{x}{predictors}
+
+\item{eigen.value}{covraince matrix of x}
 
 \item{lambda.hat}{the estimation of B}
 }

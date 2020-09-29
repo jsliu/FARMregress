@@ -11,7 +11,7 @@ findXStarClass(x, lambda.hat, F.hat)
 
 \item{lambda.hat}{estimation of B}
 
-\item{F.hat}{esitmation of F}
+\item{F.hat}{estimation of F}
 }
 \description{
 find U such that U = X - BF

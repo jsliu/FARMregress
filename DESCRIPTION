@@ -16,3 +16,5 @@ RoxygenNote: 7.1.1
 Imports: glmnet (>= 4.0.2),
          sgd (>= 1.1.1),
          gtools (>= 3.8.2)
+Suggests: 
+    testthat

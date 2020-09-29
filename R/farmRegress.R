@@ -19,8 +19,11 @@ farmRegress <- function(x, y, robust=T,
   N <- NCOL(xt)
 
   if (robust) {
-    my <- meanHuber(y)
-    y <- y-my
+    if (type == "regression") {
+      # y has to be centralized in linear regression
+      my <- meanHuber(y)
+      y <- y-my
+    }
     mx <- meanHuber(x)
     xt <- sweep(xt,1,mx)
     covx <- covHuber(x)
@@ -29,7 +32,9 @@ farmRegress <- function(x, y, robust=T,
     vectors <- eigen_fit$vectors
 
   } else {
-    y <- y-mean(y,na.rm=T)
+    if (type == "regression") {
+      y <- y-mean(y,na.rm=T)
+    }
     xt <- sweep(xt,1,rowMeans(xt))
     covx <- cov(t(x))
     pca_fit <- stats::prcomp(xt, center = TRUE, scale = TRUE)
@@ -37,6 +42,7 @@ farmRegress <- function(x, y, robust=T,
     vectors <- pca_fit$rotation
   }
 
+  # choose number of factors
   values <- pmax(values,0)
   ratio <- c()
   K.factors <- NULL
@@ -52,48 +58,55 @@ farmRegress <- function(x, y, robust=T,
   if(K.factors>min(N, P)/2) warning('\n Warning: Number of factors supplied is > min(n,p)/2. May cause numerical inconsistencies \n')
   if(K.factors>max(N, P)) stop('\n Number of factors supplied cannot be larger than n or p \n')
 
-  lambda.hat <- findLambdaClass(covx, N, P, K.factors)
-  f.hat <- findFactorClass(x, lambda.hat)
-  PF <- findPF(f.hat)
-  x.res <- findXStar(xt, PF)
-  y.res <- findYStar(y, PF)
-
-  cv.model <- cv.glmnet(x.res, y.res, family=family,...)
+  lambda.hat <- findLambdaClass(values, vectors, K.factors)
+  f.hat <- findFactorClass(x, values, lambda.hat)
 
   if (type == "regression") {
-    fitted.value <- predict(cv.model,x,s="lambda.min")
+    PF <- findPF(f.hat)
+    x.res <- findXStar(xt, PF)
+    y.res <- findYStar(y, PF)
+
+    cv.model <- cv.glmnet(x.res, y.res, family=family, ...)
+    coef.tmp <-  coef(cv.model,s = "lambda.min")
+    betas <- rownames(coef.tmp)
+    coef <- as.vector(coef.tmp)
+    fitted.value <- predict(cv.model, x, s="lambda.min")
     residual <- y-fitted.value
   }
 
   if (type == "classification") {
-    fitted.value <- predict(cv.model,x,s="lambda.min", type="response")
-    residual <- ifelse(y-fitted.value > 0.5,1,0)
+    x.res <- findXStarClass(xt, lambda.hat, f.hat)
+    y.res <- as.factor(y)
+
+    cv.model <- cv.glmnet(cbind(f.hat,x.res), y.res, family=family, ...)
+    F.factor <- NCOL(f.hat)
+    coef.tmp <-  coef(cv.model,s = "lambda.min")
+    betas <- rownames(coef.tmp)[-c(1:F.factor+1)]
+    coef <- coef.tmp[-c(1:F.factor+1)]
+    f.zero <- array(0,dim=dim(f.hat))
+    prob <- predict(cv.model, cbind(f.zero,x), s="lambda.min", type="response")
+    fitted.value <- ifelse(prob > 0.5,1,0)
+    residual <- mean(y==fitted.value)
   }
 
-  ic <- cor(y.res,fitted.value,use="pairwise")
-  coef <-  coef(cv.model,s = "lambda.min")
+  ic <- cor(y,fitted.value,use="pairwise")
   lambda <- cv.model$lambda.min
   model <- cv.model$glmnet.fit
 
-  result <- list(coefficients=coef,lambda = lambda,
+  result <- list(coefficients=coef, betas=betas, lambda = lambda,
                  fitted.value=fitted.value, residual=residual,
-                 ic=ic,model=model)
+                 ic=ic, model=model)
 
   class(result) <- "ic_farm"
   return(result)
 }
 
 #' find B matrix such that X=BxF+e, i.e. lambda.hat
-#' @param covx covariance of x
-#' @param N row number of x
-#' @param P col number of x
+#' @param eigen.value eigen values of covariance matrix
+#' @param eigen.vector eigen vectors of covariance matrix
 #' @param k.factors number of factors needed
-findLambdaClass <- function(covx, N, P, k.factors)
+findLambdaClass <- function(eigen.value, eigen.vector, k.factors)
 {
-  s <- eigen(covx)
-  eigen.value <- s$values
-  eigen.vector <- s$vector
-
   if (k.factors > 1) {
     lambda.hat <- eigen.vector[,1:k.factors]%*%diag(sqrt(eigen.value[1:k.factors]))
   } else {
@@ -104,22 +117,29 @@ findLambdaClass <- function(covx, N, P, k.factors)
 
 #' find F such that X = BxF + e, i.e F.hat
 #' @param x predictors
+#' @param eigen.value covraince matrix of x
 #' @param lambda.hat the estimation of B
-findFactorClass <- function(x, lambda.hat)
+findFactorClass <- function(x, eigen.value, lambda.hat)
 {
-  P <- NCOL(x)
-  F.hat <- x %*% lambda.hat / P
+  k.factors <- NCOL(lambda.hat)
+  if (k.factors > 1) {
+    F.hat <- x %*% lambda.hat %*% diag(1/eigen.value[1:k.factors])
+  } else {
+    F.hat <- x * lambda.hat / eigen.value[1]
+  }
+
   return(F.hat)
 }
 
 #' find U such that U = X - BF
 #' @param x predictors
 #' @param lambda.hat estimation of B
-#' @param F.hat esitmation of F
+#' @param F.hat estimation of F
 findXStarClass <- function(x, lambda.hat, F.hat)
 {
   U.star <- x - lambda.hat %*% t(F.hat)
-  return(U.star)
+  U.hat <- t(U.star)
+  return(U.hat)
 }
 
 #' find x star such that U = X - BF under linear regression

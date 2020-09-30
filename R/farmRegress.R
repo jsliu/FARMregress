@@ -125,7 +125,7 @@ findFactorClass <- function(x, eigen.value, lambda.hat)
   if (k.factors > 1) {
     F.hat <- x %*% lambda.hat %*% diag(1/eigen.value[1:k.factors])
   } else {
-    F.hat <- x * lambda.hat / eigen.value[1]
+    F.hat <- x %*% lambda.hat / eigen.value[1]
   }
 
   return(F.hat)

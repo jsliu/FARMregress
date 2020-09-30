@@ -1,8 +1,9 @@
 library(testthat)
+library(data.table)
 library(FARMregress)
 
 test_check("FARMregress")
 
-x <- fread("data/x.csv")
-y <- fread("data/y.csv")[,y]
-out <- farmRegress(x,y,type="classification")
+x <- fread("x.csv")
+y <- read.csv("y.csv")$x
+out <- farmRegress(x,y,type="regression")

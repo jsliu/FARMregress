@@ -86,7 +86,7 @@ farmRegress <- function(x, y, robust=T,
     f.zero <- array(0,dim=dim(f.hat))
     prob <- predict(cv.model, cbind(f.zero,x), s="lambda.min", type="response")
     fitted.value <- ifelse(prob > 0.5,1,0)
-    residual <- mean(y==fitted.value)
+    residual <- mean(y!=fitted.value)
   }
 
   ic <- cor(y,fitted.value,use="pairwise")
